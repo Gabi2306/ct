@@ -82,40 +82,54 @@ export default function RankingPage() {
         friendships.forEach(f => idsToQuery.push(f.friend_id))
       }
 
-      // Obtener datos de ranking - usar profiles directamente con join a activities
-      const { data: rankingData, error: rankingError } = await supabase
+      // Calcular inicio de semana (lunes)
+      const now = new Date()
+      const startOfWeek = new Date(now)
+      const dayOfWeek = now.getDay()
+      const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+      startOfWeek.setDate(now.getDate() + diffToMonday)
+      startOfWeek.setHours(0, 0, 0, 0)
+
+      console.log("[v0] Start of week:", startOfWeek.toISOString())
+
+      // Obtener perfiles primero
+      const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
-        .select(`
-          id,
-          name,
-          friend_code,
-          activities!inner(emissions, created_at)
-        `)
+        .select("id, name, friend_code")
         .in("id", idsToQuery)
 
-      console.log("[v0] Ranking data:", rankingData, "Error:", rankingError)
+      console.log("[v0] Profiles data:", profilesData, "Error:", profilesError)
 
-      if (rankingData) {
-        // Calcular emisiones semanales manualmente
-        const now = new Date()
-        const startOfWeek = new Date(now)
-        const dayOfWeek = now.getDay()
-        const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
-        startOfWeek.setDate(now.getDate() + diffToMonday)
-        startOfWeek.setHours(0, 0, 0, 0)
+      if (profilesData) {
+        // Obtener actividades de la semana para todos los usuarios
+        const { data: activitiesData, error: activitiesError } = await supabase
+          .from("activities")
+          .select("user_id, emissions, created_at")
+          .in("user_id", idsToQuery)
+          .gte("created_at", startOfWeek.toISOString())
 
-        const usersWithEmissions = rankingData.map(user => {
-          const weeklyEmissions = (user.activities || [])
-            .filter((a: { created_at: string }) => new Date(a.created_at) >= startOfWeek)
-            .reduce((sum: number, a: { emissions: number }) => sum + Number(a.emissions || 0), 0)
-          
-          return {
-            id: user.id,
-            full_name: user.name || "Usuario",
-            friend_code: user.friend_code || "",
-            weekly_emissions: weeklyEmissions
-          }
-        })
+        console.log("[v0] Activities data:", activitiesData, "Error:", activitiesError)
+
+        // Calcular emisiones por usuario
+        const emissionsByUser: Record<string, number> = {}
+        idsToQuery.forEach(id => { emissionsByUser[id] = 0 })
+        
+        if (activitiesData) {
+          activitiesData.forEach(activity => {
+            const userId = activity.user_id
+            const emissions = Number(activity.emissions) || 0
+            emissionsByUser[userId] = (emissionsByUser[userId] || 0) + emissions
+          })
+        }
+
+        console.log("[v0] Emissions by user:", emissionsByUser)
+
+        const usersWithEmissions = profilesData.map(profile => ({
+          id: profile.id,
+          full_name: profile.name || "Usuario",
+          friend_code: profile.friend_code || "",
+          weekly_emissions: emissionsByUser[profile.id] || 0
+        }))
 
         // Ordenar por emisiones (menor a mayor)
         const sorted = usersWithEmissions.sort((a, b) => a.weekly_emissions - b.weekly_emissions)
@@ -126,23 +140,6 @@ export default function RankingPage() {
           rank: index + 1
         }))
         setFriends(ranked)
-      } else {
-        // Fallback: obtener solo perfiles sin actividades
-        const { data: profilesOnly } = await supabase
-          .from("profiles")
-          .select("id, name, friend_code")
-          .in("id", idsToQuery)
-
-        if (profilesOnly) {
-          const ranked = profilesOnly.map((p, index) => ({
-            id: p.id,
-            full_name: p.name || "Usuario",
-            friend_code: p.friend_code || "",
-            weekly_emissions: 0,
-            rank: index + 1
-          }))
-          setFriends(ranked)
-        }
       }
     } catch (err) {
       console.error("Error loading data:", err)
@@ -160,14 +157,29 @@ export default function RankingPage() {
   }, [isLoggedIn, router, loadData])
 
   const copyFriendCode = async () => {
-    if (!userProfile?.friend_code) return
+    const code = userProfile?.friend_code
+    console.log("[v0] Copying friend code:", code)
+    
+    if (!code || code === "--------") {
+      setError("No tienes un codigo de amigo asignado")
+      return
+    }
     
     try {
-      await navigator.clipboard.writeText(userProfile.friend_code)
+      await navigator.clipboard.writeText(code)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch {
-      setError("No se pudo copiar el codigo")
+    } catch (err) {
+      console.error("[v0] Copy error:", err)
+      // Fallback para navegadores que no soportan clipboard API
+      const textArea = document.createElement("textarea")
+      textArea.value = code
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand("copy")
+      document.body.removeChild(textArea)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     }
   }
 
@@ -179,12 +191,17 @@ export default function RankingPage() {
     setSuccess("")
 
     try {
-      // Buscar usuario por codigo
+      const codeToSearch = friendCode.toUpperCase().trim()
+      console.log("[v0] Searching for friend code:", codeToSearch)
+      
+      // Buscar usuario por codigo - usar campo "name" en lugar de "full_name"
       const { data: friendProfile, error: searchError } = await supabase
         .from("profiles")
-        .select("id, full_name, friend_code")
-        .eq("friend_code", friendCode.toUpperCase().trim())
+        .select("id, name, friend_code")
+        .eq("friend_code", codeToSearch)
         .single()
+
+      console.log("[v0] Friend search result:", friendProfile, "Error:", searchError)
 
       if (searchError || !friendProfile) {
         setError("No se encontro ningun usuario con ese codigo")
@@ -204,7 +221,7 @@ export default function RankingPage() {
         .select("id")
         .eq("user_id", user.id)
         .eq("friend_id", friendProfile.id)
-        .single()
+        .maybeSingle()
 
       if (existing) {
         setError("Ya tienes a este usuario como amigo")
@@ -221,16 +238,18 @@ export default function RankingPage() {
         ])
 
       if (insertError) {
+        console.log("[v0] Insert error:", insertError)
         setError("Error al agregar amigo. Intenta de nuevo.")
         setAddingFriend(false)
         return
       }
 
-      setSuccess(`Agregaste a ${friendProfile.full_name} como amigo`)
+      setSuccess(`Agregaste a ${friendProfile.name || "Usuario"} como amigo`)
       setFriendCode("")
       setShowAddFriend(false)
       loadData()
-    } catch {
+    } catch (err) {
+      console.error("[v0] Add friend error:", err)
       setError("Error de conexion. Intenta de nuevo.")
     } finally {
       setAddingFriend(false)
