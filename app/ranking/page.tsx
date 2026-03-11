@@ -190,41 +190,43 @@ export default function RankingPage() {
     setError("")
     setSuccess("")
 
+    const codeToSearch = friendCode.toUpperCase().trim()
+
     try {
-      const codeToSearch = friendCode.toUpperCase().trim()
-      console.log("[v0] Buscando codigo:", codeToSearch)
-      
-      // ✅ .maybeSingle() en lugar de .single() — no lanza error si no encuentra nada
-      const { data: friendProfile, error: searchError } = await supabase
+      // Buscar perfil por friend_code con timeout
+      const searchPromise = supabase
         .from("profiles")
         .select("id, name, friend_code")
         .eq("friend_code", codeToSearch)
         .maybeSingle()
 
-      console.log("[v0] Resultado busqueda:", { friendProfile, searchError })
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("timeout")), 10000)
+      )
+
+      const { data: friendProfile, error: searchError } = await Promise.race([
+        searchPromise,
+        timeoutPromise
+      ]) as Awaited<typeof searchPromise>
 
       if (searchError) {
-        console.error("[v0] Search error:", searchError)
         setError("Error al buscar el usuario. Intenta de nuevo.")
         setAddingFriend(false)
         return
       }
 
       if (!friendProfile) {
-        console.log("[v0] No se encontro perfil")
         setError("No se encontró ningún usuario con ese código")
         setAddingFriend(false)
         return
       }
 
       if (friendProfile.id === user.id) {
-        console.log("[v0] Es el mismo usuario")
         setError("No puedes agregarte a ti mismo")
         setAddingFriend(false)
         return
       }
 
-      console.log("[v0] Verificando si ya son amigos...")
       // Verificar si ya son amigos
       const { data: existing, error: existingError } = await supabase
         .from("friendships")
@@ -233,54 +235,45 @@ export default function RankingPage() {
         .eq("friend_id", friendProfile.id)
         .maybeSingle()
 
-      console.log("[v0] Resultado verificacion:", { existing, existingError })
-
       if (existingError) {
-        console.error("[v0] Existing check error:", existingError)
         setError("Error al verificar amistad existente")
         setAddingFriend(false)
         return
       }
 
       if (existing) {
-        console.log("[v0] Ya son amigos")
         setError("Ya tienes a este usuario como amigo")
         setAddingFriend(false)
         return
       }
 
-      console.log("[v0] Insertando amistad...")
       // Agregar amistad
       const { error: insertError } = await supabase
         .from("friendships")
         .insert({ user_id: user.id, friend_id: friendProfile.id })
 
-      console.log("[v0] Resultado insercion:", { insertError })
-
       if (insertError) {
-        console.error("[v0] Insert error:", insertError)
         if (insertError.code === "23505") {
           setError("Ya tienes a este usuario como amigo")
         } else {
-          // ✅ Muestra el mensaje real del error para facilitar debugging
           setError(`Error al agregar amigo: ${insertError.message}`)
         }
         setAddingFriend(false)
         return
       }
 
-      console.log("[v0] Amistad agregada, recargando datos...")
       setSuccess(`¡Agregaste a ${friendProfile.name || "Usuario"} como amigo!`)
       setFriendCode("")
       setShowAddFriend(false)
-      await loadData() // ✅ Await para esperar la recarga
-      console.log("[v0] Datos recargados")
+      await loadData()
     } catch (err) {
-      console.error("[v0] Unexpected error:", err)
-      setError("Error de conexión. Intenta de nuevo.")
+      if (err instanceof Error && err.message === "timeout") {
+        setError("La búsqueda tardó demasiado. Verifica tus políticas RLS en Supabase.")
+      } else {
+        setError("Error de conexión. Intenta de nuevo.")
+      }
     } finally {
-      console.log("[v0] Finally - setting addingFriend to false")
-      setAddingFriend(false) // ✅ Siempre se ejecuta, sin importar el flujo
+      setAddingFriend(false)
     }
   }
 

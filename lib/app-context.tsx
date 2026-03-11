@@ -361,19 +361,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const getWeeklyData = useCallback(() => {
     const days = ["L", "M", "X", "J", "V", "S", "D"]
+    const now = new Date()
+    const currentDay = now.getDay()
+    // Calcular el lunes de esta semana
+    const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay
+    
     const data = days.map((day, i) => {
-      const date = new Date()
-      const currentDay = date.getDay()
-      const diff = currentDay === 0 ? 6 : currentDay - 1
-      date.setDate(date.getDate() - diff + i)
+      // Crear fecha para cada día de la semana (Lunes = i:0, Martes = i:1, etc.)
+      const date = new Date(now)
+      date.setDate(now.getDate() + diffToMonday + i)
       date.setHours(0, 0, 0, 0)
+      
       const nextDay = new Date(date)
       nextDay.setDate(nextDay.getDate() + 1)
 
       const dayEmissions = activities
         .filter((a) => {
-          const d = new Date(a.timestamp)
-          return d >= date && d < nextDay
+          // Convertir timestamp UTC a fecha local para comparación
+          const activityDate = new Date(a.timestamp)
+          const activityLocalDate = new Date(
+            activityDate.getFullYear(),
+            activityDate.getMonth(),
+            activityDate.getDate()
+          )
+          const targetLocalDate = new Date(
+            date.getFullYear(),
+            date.getMonth(),
+            date.getDate()
+          )
+          return activityLocalDate.getTime() === targetLocalDate.getTime()
         })
         .reduce((sum, a) => sum + a.emissions, 0)
 
