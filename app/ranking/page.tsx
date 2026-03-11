@@ -60,8 +60,6 @@ export default function RankingPage() {
         .eq("id", user.id)
         .single()
 
-      console.log("[v0] Profile loaded:", profile, "Error:", profileError)
-
       if (profile) {
         setUserProfile({
           id: profile.id,
@@ -90,15 +88,11 @@ export default function RankingPage() {
       startOfWeek.setDate(now.getDate() + diffToMonday)
       startOfWeek.setHours(0, 0, 0, 0)
 
-      console.log("[v0] Start of week:", startOfWeek.toISOString())
-
       // Obtener perfiles primero
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
         .select("id, name, friend_code")
         .in("id", idsToQuery)
-
-      console.log("[v0] Profiles data:", profilesData, "Error:", profilesError)
 
       if (profilesData) {
         // Obtener actividades de la semana para todos los usuarios
@@ -107,8 +101,6 @@ export default function RankingPage() {
           .select("user_id, emissions, created_at")
           .in("user_id", idsToQuery)
           .gte("created_at", startOfWeek.toISOString())
-
-        console.log("[v0] Activities data:", activitiesData, "Error:", activitiesError)
 
         // Calcular emisiones por usuario
         const emissionsByUser: Record<string, number> = {}
@@ -121,8 +113,6 @@ export default function RankingPage() {
             emissionsByUser[userId] = (emissionsByUser[userId] || 0) + emissions
           })
         }
-
-        console.log("[v0] Emissions by user:", emissionsByUser)
 
         const usersWithEmissions = profilesData.map(profile => ({
           id: profile.id,
@@ -158,7 +148,6 @@ export default function RankingPage() {
 
   const copyFriendCode = async () => {
     const code = userProfile?.friend_code
-    console.log("[v0] Copying friend code:", code)
     
     if (!code || code === "--------") {
       setError("No tienes un codigo de amigo asignado")
@@ -169,8 +158,7 @@ export default function RankingPage() {
       await navigator.clipboard.writeText(code)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
-      console.error("[v0] Copy error:", err)
+    } catch {
       // Fallback para navegadores que no soportan clipboard API
       const textArea = document.createElement("textarea")
       textArea.value = code
@@ -192,16 +180,13 @@ export default function RankingPage() {
 
     try {
       const codeToSearch = friendCode.toUpperCase().trim()
-      console.log("[v0] Searching for friend code:", codeToSearch)
       
-      // Buscar usuario por codigo - usar campo "name" en lugar de "full_name"
+      // Buscar usuario por codigo
       const { data: friendProfile, error: searchError } = await supabase
         .from("profiles")
         .select("id, name, friend_code")
         .eq("friend_code", codeToSearch)
         .single()
-
-      console.log("[v0] Friend search result:", friendProfile, "Error:", searchError)
 
       if (searchError || !friendProfile) {
         setError("No se encontro ningun usuario con ese codigo")
@@ -229,17 +214,17 @@ export default function RankingPage() {
         return
       }
 
-      // Agregar amistad (bidireccional)
+      // Agregar amistad (solo del lado del usuario actual - RLS no permite insertar para otros)
       const { error: insertError } = await supabase
         .from("friendships")
-        .insert([
-          { user_id: user.id, friend_id: friendProfile.id },
-          { user_id: friendProfile.id, friend_id: user.id }
-        ])
+        .insert({ user_id: user.id, friend_id: friendProfile.id })
 
       if (insertError) {
-        console.log("[v0] Insert error:", insertError)
-        setError("Error al agregar amigo. Intenta de nuevo.")
+        if (insertError.code === "23505") {
+          setError("Ya tienes a este usuario como amigo")
+        } else {
+          setError("Error al agregar amigo. Intenta de nuevo.")
+        }
         setAddingFriend(false)
         return
       }
@@ -248,8 +233,7 @@ export default function RankingPage() {
       setFriendCode("")
       setShowAddFriend(false)
       loadData()
-    } catch (err) {
-      console.error("[v0] Add friend error:", err)
+    } catch {
       setError("Error de conexion. Intenta de nuevo.")
     } finally {
       setAddingFriend(false)
