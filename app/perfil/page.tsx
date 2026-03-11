@@ -157,40 +157,75 @@ export default function PerfilPage() {
   }
 
   // Handlers de notificaciones
+  const [notificationLoading, setNotificationLoading] = useState(false)
+
   const requestNotificationPermission = async () => {
     if (!("Notification" in window)) {
       alert("Tu navegador no soporta notificaciones")
       return false
     }
+    console.log("[v0] Requesting notification permission...")
     const permission = await Notification.requestPermission()
+    console.log("[v0] Permission result:", permission)
     setNotificationPermission(permission)
     return permission === "granted"
   }
 
   const toggleNotifications = async () => {
-    if (!notificationSettings.enabled) {
-      const granted = await requestNotificationPermission()
-      if (granted) {
-        setNotificationSettings((prev) => ({ ...prev, enabled: true }))
-        scheduleNotification()
+    setNotificationLoading(true)
+    console.log("[v0] Toggle notifications, current state:", notificationSettings.enabled)
+    
+    try {
+      if (!notificationSettings.enabled) {
+        const granted = await requestNotificationPermission()
+        console.log("[v0] Permission granted:", granted)
+        
+        if (granted) {
+          const newSettings = { ...notificationSettings, enabled: true }
+          setNotificationSettings(newSettings)
+          localStorage.setItem("notification-settings", JSON.stringify(newSettings))
+          
+          // Programar notificacion despues de actualizar estado
+          await scheduleNotificationWithSettings(newSettings)
+          
+          // Mostrar notificacion de confirmacion
+          const tip = getRandomTip()
+          new Notification("Notificaciones activadas", {
+            body: `Recibiras tips diarios a las ${formatTime(newSettings.hour, newSettings.minute)}`,
+            icon: "/icon-192.png",
+            tag: "eco-tip-activated",
+          })
+        }
+      } else {
+        const newSettings = { ...notificationSettings, enabled: false }
+        setNotificationSettings(newSettings)
+        localStorage.setItem("notification-settings", JSON.stringify(newSettings))
+        console.log("[v0] Notifications disabled")
       }
-    } else {
-      setNotificationSettings((prev) => ({ ...prev, enabled: false }))
+    } catch (error) {
+      console.error("[v0] Error toggling notifications:", error)
+    } finally {
+      setNotificationLoading(false)
     }
   }
 
-  const scheduleNotification = () => {
+  const scheduleNotificationWithSettings = async (settings: NotificationSettings) => {
+    console.log("[v0] Scheduling notification with settings:", settings)
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.ready.then((registration) => {
-        localStorage.setItem("notification-settings", JSON.stringify(notificationSettings))
+      try {
+        const registration = await navigator.serviceWorker.ready
+        console.log("[v0] Service worker ready:", registration)
         if (registration.active) {
           registration.active.postMessage({
             type: "SCHEDULE_NOTIFICATION",
-            hour: notificationSettings.hour,
-            minute: notificationSettings.minute,
+            hour: settings.hour,
+            minute: settings.minute,
           })
+          console.log("[v0] Message sent to service worker")
         }
-      })
+      } catch (error) {
+        console.error("[v0] Error scheduling notification:", error)
+      }
     }
   }
 
@@ -198,31 +233,25 @@ export default function PerfilPage() {
     const newSettings = { ...notificationSettings, hour, minute }
     setNotificationSettings(newSettings)
     setShowTimePicker(false)
-    if (notificationSettings.enabled) {
-      localStorage.setItem("notification-settings", JSON.stringify(newSettings))
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.ready.then((registration) => {
-          if (registration.active) {
-            registration.active.postMessage({
-              type: "SCHEDULE_NOTIFICATION",
-              hour,
-              minute,
-            })
-          }
-        })
-      }
+    localStorage.setItem("notification-settings", JSON.stringify(newSettings))
+    
+    if (newSettings.enabled) {
+      scheduleNotificationWithSettings(newSettings)
     }
   }
 
   const sendTestNotification = () => {
+    console.log("[v0] Sending test notification, permission:", notificationPermission)
     if (notificationPermission === "granted") {
       const tip = getRandomTip()
       new Notification("Tip Ambiental del Dia", {
         body: `${tip.title}: ${tip.description}`,
         icon: "/icon-192.png",
         badge: "/icon-192.png",
-        tag: "eco-tip",
+        tag: "eco-tip-test",
       })
+    } else {
+      alert("Primero debes activar las notificaciones")
     }
   }
 
@@ -471,23 +500,32 @@ export default function PerfilPage() {
                 <div>
                   <p className="text-sm font-medium text-foreground">Tips diarios</p>
                   <p className="text-xs text-muted-foreground">
-                    {notificationSettings.enabled ? "Activas" : "Desactivadas"}
+                    {notificationPermission === "denied" 
+                      ? "Bloqueadas - habilita en configuracion del navegador"
+                      : notificationSettings.enabled 
+                        ? "Activas" 
+                        : "Desactivadas"}
                   </p>
                 </div>
               </div>
               <button
                 onClick={toggleNotifications}
-                className={`relative h-7 w-12 rounded-full transition-colors ${
+                disabled={notificationLoading || notificationPermission === "denied"}
+                className={`relative h-7 w-12 rounded-full transition-colors disabled:opacity-50 ${
                   notificationSettings.enabled ? "bg-accent" : "bg-secondary"
                 }`}
                 role="switch"
                 aria-checked={notificationSettings.enabled}
               >
-                <span
-                  className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-transform ${
-                    notificationSettings.enabled ? "left-6" : "left-1"
-                  }`}
-                />
+                {notificationLoading ? (
+                  <span className="absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <span
+                    className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-transform ${
+                      notificationSettings.enabled ? "left-6" : "left-1"
+                    }`}
+                  />
+                )}
               </button>
             </div>
 
