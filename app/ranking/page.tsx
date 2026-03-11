@@ -54,14 +54,20 @@ export default function RankingPage() {
     setLoading(true)
     try {
       // Cargar perfil del usuario
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("id, full_name, friend_code")
+        .select("id, name, friend_code")
         .eq("id", user.id)
         .single()
 
+      console.log("[v0] Profile loaded:", profile, "Error:", profileError)
+
       if (profile) {
-        setUserProfile(profile)
+        setUserProfile({
+          id: profile.id,
+          full_name: profile.name || "Usuario",
+          friend_code: profile.friend_code || ""
+        })
       }
 
       // Cargar amigos
@@ -76,26 +82,67 @@ export default function RankingPage() {
         friendships.forEach(f => idsToQuery.push(f.friend_id))
       }
 
-      // Obtener datos de ranking
-      const { data: rankingData } = await supabase
-        .from("weekly_rankings")
-        .select("*")
+      // Obtener datos de ranking - usar profiles directamente con join a activities
+      const { data: rankingData, error: rankingError } = await supabase
+        .from("profiles")
+        .select(`
+          id,
+          name,
+          friend_code,
+          activities!inner(emissions, created_at)
+        `)
         .in("id", idsToQuery)
 
+      console.log("[v0] Ranking data:", rankingData, "Error:", rankingError)
+
       if (rankingData) {
+        // Calcular emisiones semanales manualmente
+        const now = new Date()
+        const startOfWeek = new Date(now)
+        const dayOfWeek = now.getDay()
+        const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+        startOfWeek.setDate(now.getDate() + diffToMonday)
+        startOfWeek.setHours(0, 0, 0, 0)
+
+        const usersWithEmissions = rankingData.map(user => {
+          const weeklyEmissions = (user.activities || [])
+            .filter((a: { created_at: string }) => new Date(a.created_at) >= startOfWeek)
+            .reduce((sum: number, a: { emissions: number }) => sum + Number(a.emissions || 0), 0)
+          
+          return {
+            id: user.id,
+            full_name: user.name || "Usuario",
+            friend_code: user.friend_code || "",
+            weekly_emissions: weeklyEmissions
+          }
+        })
+
         // Ordenar por emisiones (menor a mayor)
-        const sorted = rankingData.sort((a, b) => 
-          Number(a.weekly_emissions) - Number(b.weekly_emissions)
-        )
+        const sorted = usersWithEmissions.sort((a, b) => a.weekly_emissions - b.weekly_emissions)
+        
         // Asignar ranking
         const ranked = sorted.map((f, index) => ({
-          id: f.id,
-          full_name: f.full_name || "Usuario",
-          friend_code: f.friend_code || "",
-          weekly_emissions: Number(f.weekly_emissions) || 0,
+          ...f,
           rank: index + 1
         }))
         setFriends(ranked)
+      } else {
+        // Fallback: obtener solo perfiles sin actividades
+        const { data: profilesOnly } = await supabase
+          .from("profiles")
+          .select("id, name, friend_code")
+          .in("id", idsToQuery)
+
+        if (profilesOnly) {
+          const ranked = profilesOnly.map((p, index) => ({
+            id: p.id,
+            full_name: p.name || "Usuario",
+            friend_code: p.friend_code || "",
+            weekly_emissions: 0,
+            rank: index + 1
+          }))
+          setFriends(ranked)
+        }
       }
     } catch (err) {
       console.error("Error loading data:", err)
