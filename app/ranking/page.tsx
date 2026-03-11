@@ -1,167 +1,316 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { useApp } from "@/lib/app-context"
-import { ChevronLeft, Info, User } from "lucide-react"
-import { Home, Utensils, BarChart3, Trophy } from "lucide-react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-
-const TOP_THREE = [
-  { name: "Leo King", kg: "38.2", pos: 2 },
-  { name: "Alex Rivers", kg: "42.5", pos: 1 },
-  { name: "Maya Wu", kg: "35.9", pos: 3 },
-]
-
-const CONTRIBUTORS = [
-  { pos: 4, name: "Jordan Smith", label: "TRANSPORTE ACTIVO", kg: "31.4" },
-  { pos: 5, name: "Sarah Chen", label: "ECO VIAJERO", kg: "28.7" },
-  { pos: 6, name: "Markus J.", label: "DIETA VEGETAL", kg: "25.1" },
-]
-
-function RankingBottomNav() {
-  const pathname = usePathname()
-  const items = [
-    { label: "Inicio", icon: Home, path: "/dashboard" },
-    { label: "Registro", icon: Utensils, path: "/log-food" },
-    { label: "Ranking", icon: Trophy, path: "/ranking" },
-    { label: "Estadisticas", icon: BarChart3, path: "/dashboard" },
-    { label: "Perfil", icon: User, path: "/dashboard" },
-  ]
-
-  return (
-    <nav className="sticky bottom-0 flex items-center justify-around border-t border-border bg-card px-2 pb-6 pt-3">
-      {items.map((item) => {
-        const isActive = item.path === pathname
-        return (
-          <Link key={item.label} href={item.path}>
-            <div className={`flex flex-col items-center gap-0.5 px-3 py-1 ${
-              isActive ? "text-primary" : "text-muted-foreground"
-            }`}>
-              <item.icon className="h-5 w-5" />
-              <span className="text-[10px] font-medium">{item.label}</span>
-            </div>
-          </Link>
-        )
-      })}
-    </nav>
-  )
-}
+import { useApp, type Friend, type FriendRequest } from "@/lib/app-context"
+import { BottomNav } from "@/components/bottom-nav"
+import { 
+  ArrowLeft, 
+  Info, 
+  User, 
+  UserPlus, 
+  Users, 
+  Bell,
+  Trophy,
+  Medal,
+  Crown,
+  Leaf
+} from "lucide-react"
 
 export default function RankingPage() {
   const router = useRouter()
-  const { user, isLoggedIn } = useApp()
-  const [tab, setTab] = useState("Esta semana")
+  const { 
+    user, 
+    profile,
+    isLoggedIn, 
+    getWeeklyRanking, 
+    getPendingRequests,
+    loadProfile 
+  } = useApp()
+  
+  const [ranking, setRanking] = useState<Friend[]>([])
+  const [pendingCount, setPendingCount] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [showInfo, setShowInfo] = useState(false)
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [rankingData, requests] = await Promise.all([
+        getWeeklyRanking(),
+        getPendingRequests(),
+      ])
+      setRanking(rankingData)
+      setPendingCount(requests.length)
+    } catch {
+      // Silent fail
+    } finally {
+      setLoading(false)
+    }
+  }, [getWeeklyRanking, getPendingRequests])
 
   useEffect(() => {
     if (!isLoggedIn) {
       router.replace("/")
+    } else {
+      loadProfile()
+      loadData()
     }
-  }, [isLoggedIn, router])
+  }, [isLoggedIn, router, loadProfile, loadData])
 
   if (!isLoggedIn) return null
 
+  const userRank = ranking.findIndex((r) => r.id === user?.id) + 1
+  const userStats = ranking.find((r) => r.id === user?.id)
+  const topThree = ranking.slice(0, 3)
+  const rest = ranking.slice(3)
+
   return (
-    <div className="flex min-h-screen flex-col">
-      <div className="flex-1 overflow-y-auto px-5 pb-4 pt-4">
+    <div className="flex min-h-screen flex-col bg-background">
+      <div className="flex-1 overflow-y-auto px-5 pb-4 pt-6">
         {/* Header */}
-        <div className="mb-5 flex items-center justify-between">
-          <button onClick={() => router.back()} className="text-foreground">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <h1 className="text-base font-bold text-foreground">Ranking Semanal</h1>
-          <Info className="h-5 w-5 text-muted-foreground" />
-        </div>
-
-        {/* Tab Selector */}
-        <div className="mb-6 flex rounded-xl bg-secondary p-1">
-          {["Esta semana", "Semana pasada"].map((t) => (
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-colors ${
-                tab === t
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground"
-              }`}
+              onClick={() => router.push("/dashboard")}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-foreground"
+              aria-label="Volver"
             >
-              {t}
+              <ArrowLeft className="h-5 w-5" />
             </button>
-          ))}
+            <h1 className="text-xl font-bold text-foreground">Ranking Semanal</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowInfo(!showInfo)}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-foreground"
+              aria-label="Informacion"
+            >
+              <Info className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
-        {/* Podium */}
-        <div className="mb-8 flex items-end justify-center gap-4 pt-4">
-          {TOP_THREE.map((person) => {
-            const isFirst = person.pos === 1
-            const size = isFirst ? "h-20 w-20" : "h-16 w-16"
-            const order = person.pos === 2 ? "order-1" : person.pos === 1 ? "order-2" : "order-3"
+        {/* Info panel */}
+        {showInfo && (
+          <div className="mb-4 rounded-2xl bg-card p-4">
+            <p className="text-sm text-muted-foreground">
+              El ranking se calcula semanalmente (lunes a domingo) basado en quien 
+              produce <span className="font-semibold text-primary">menos emisiones de CO2</span>. 
+              Compite con tus amigos para ser el mas ecologico.
+            </p>
+          </div>
+        )}
 
-            return (
-              <div key={person.pos} className={`flex flex-col items-center ${order}`}>
-                <div className="relative">
-                  <div className={`${size} flex items-center justify-center rounded-full ${
-                    isFirst
-                      ? "border-2 border-accent bg-primary shadow-lg shadow-primary/30"
-                      : "border border-border bg-secondary"
-                  }`}>
-                    <User className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  {isFirst && (
-                    <div className="absolute -right-1 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-accent text-[9px] font-bold text-white">
-                      1ro
+        {/* Action buttons */}
+        <div className="mb-6 flex gap-3">
+          <button
+            onClick={() => router.push("/ranking/add-friend")}
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-sm font-semibold text-primary-foreground"
+          >
+            <UserPlus className="h-4 w-4" />
+            Agregar amigo
+          </button>
+          <button
+            onClick={() => router.push("/ranking/requests")}
+            className="relative flex flex-1 items-center justify-center gap-2 rounded-2xl bg-card py-3 text-sm font-semibold text-foreground"
+          >
+            <Bell className="h-4 w-4" />
+            Solicitudes
+            {pendingCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
+                {pendingCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="mt-3 text-sm text-muted-foreground">Cargando ranking...</p>
+          </div>
+        ) : ranking.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl bg-card px-6 py-12 text-center">
+            <Users className="mb-4 h-12 w-12 text-muted-foreground" />
+            <h2 className="mb-2 text-lg font-bold text-foreground">Sin amigos aun</h2>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Agrega amigos usando su codigo unico para competir en el ranking semanal
+            </p>
+            <button
+              onClick={() => router.push("/ranking/add-friend")}
+              className="rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground"
+            >
+              Agregar primer amigo
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Podium */}
+            {topThree.length > 0 && (
+              <div className="mb-6 flex items-end justify-center gap-3 pt-8">
+                {/* Second place */}
+                {topThree[1] && (
+                  <div className="flex flex-col items-center">
+                    <div className="relative">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-border bg-card">
+                        <span className="text-xl font-bold text-foreground">
+                          {topThree[1].name[0].toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-secondary">
+                        <Medal className="h-3 w-3 text-muted-foreground" />
+                      </div>
                     </div>
-                  )}
-                </div>
-                <p className="mt-2 text-xs font-semibold text-foreground">{person.name}</p>
-                <p className="text-[11px] text-accent">{person.kg} kg ahorrado</p>
-              </div>
-            )
-          })}
-        </div>
+                    <p className="mt-2 max-w-[80px] truncate text-xs font-semibold text-foreground">
+                      {topThree[1].id === user?.id ? "Tu" : topThree[1].name}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {topThree[1].weeklyEmissions.toFixed(1)} kg
+                    </p>
+                    <div className="mt-2 h-16 w-16 rounded-t-lg bg-secondary" />
+                  </div>
+                )}
 
-        {/* Top Contributors */}
-        <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-foreground">
-          Mejores contribuidores
-        </h2>
-        <div className="flex flex-col gap-2">
-          {CONTRIBUTORS.map((c) => (
-            <div key={c.pos} className="flex items-center gap-3 rounded-2xl bg-card px-4 py-3">
-              <span className="w-5 text-sm font-bold text-muted-foreground">{c.pos}</span>
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary">
-                <User className="h-4 w-4 text-muted-foreground" />
+                {/* First place */}
+                {topThree[0] && (
+                  <div className="flex flex-col items-center">
+                    <div className="relative">
+                      <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-primary bg-primary/10 shadow-lg shadow-primary/20">
+                        <span className="text-2xl font-bold text-primary">
+                          {topThree[0].name[0].toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                        <Crown className="h-6 w-6 text-primary" />
+                      </div>
+                    </div>
+                    <p className="mt-2 max-w-[90px] truncate text-sm font-bold text-foreground">
+                      {topThree[0].id === user?.id ? "Tu" : topThree[0].name}
+                    </p>
+                    <p className="text-xs text-primary">
+                      {topThree[0].weeklyEmissions.toFixed(1)} kg
+                    </p>
+                    <div className="mt-2 h-24 w-20 rounded-t-lg bg-primary/20" />
+                  </div>
+                )}
+
+                {/* Third place */}
+                {topThree[2] && (
+                  <div className="flex flex-col items-center">
+                    <div className="relative">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-border bg-card">
+                        <span className="text-lg font-bold text-foreground">
+                          {topThree[2].name[0].toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-secondary">
+                        <span className="text-[10px] font-bold text-muted-foreground">3</span>
+                      </div>
+                    </div>
+                    <p className="mt-2 max-w-[70px] truncate text-xs font-semibold text-foreground">
+                      {topThree[2].id === user?.id ? "Tu" : topThree[2].name}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {topThree[2].weeklyEmissions.toFixed(1)} kg
+                    </p>
+                    <div className="mt-2 h-12 w-14 rounded-t-lg bg-secondary" />
+                  </div>
+                )}
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-foreground">{c.name}</p>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{c.label}</p>
+            )}
+
+            {/* Rest of ranking */}
+            {rest.length > 0 && (
+              <>
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  Clasificacion completa
+                </h2>
+                <div className="mb-4 flex flex-col gap-2">
+                  {rest.map((friend, index) => {
+                    const position = index + 4
+                    const isUser = friend.id === user?.id
+
+                    return (
+                      <div
+                        key={friend.id}
+                        className={`flex items-center gap-3 rounded-2xl px-4 py-3 ${
+                          isUser ? "bg-primary/10 ring-1 ring-primary" : "bg-card"
+                        }`}
+                      >
+                        <span className="w-6 text-center text-sm font-bold text-muted-foreground">
+                          {position}
+                        </span>
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                          isUser ? "bg-primary text-primary-foreground" : "bg-secondary"
+                        }`}>
+                          <span className="text-sm font-bold">
+                            {friend.name[0].toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <p className={`text-sm font-semibold ${isUser ? "text-primary" : "text-foreground"}`}>
+                            {isUser ? "Tu" : friend.name}
+                          </p>
+                          {isUser && (
+                            <p className="text-[10px] uppercase tracking-wider text-primary/70">
+                              Tu posicion actual
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-foreground">
+                            {friend.weeklyEmissions.toFixed(1)} kg
+                          </p>
+                          <p className="text-[10px] uppercase text-muted-foreground">CO2</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* User stats banner if not in top 3 */}
+            {userRank > 3 && userStats && (
+              <div className="mt-2 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-primary to-accent px-4 py-4">
+                <span className="text-lg font-bold text-white/70">#{userRank}</span>
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
+                  <span className="text-sm font-bold text-white">
+                    {user?.name?.[0]?.toUpperCase() || "U"}
+                  </span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-white">Tu posicion</p>
+                  <p className="text-[10px] uppercase text-white/70">
+                    Reduce emisiones para subir
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-white">
+                    {userStats.weeklyEmissions.toFixed(1)} kg
+                  </p>
+                  <p className="text-[9px] uppercase text-white/70">Esta semana</p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm font-bold text-foreground">{c.kg} kg</p>
-                <span className="text-[9px] font-bold uppercase text-accent">AHORRADO</span>
+            )}
+
+            {/* Eco tip */}
+            <div className="mt-4 flex items-start gap-3 rounded-2xl bg-card p-4">
+              <Leaf className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+              <div>
+                <p className="text-xs font-semibold text-foreground">Consejo ecologico</p>
+                <p className="text-xs text-muted-foreground">
+                  Menos emisiones = mejor posicion. Usa transporte publico, reduce el consumo 
+                  de carne y optimiza tus viajes para mejorar tu ranking.
+                </p>
               </div>
             </div>
-          ))}
-        </div>
-
-        {/* Tu banner */}
-        <div className="mt-4 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-primary to-accent px-4 py-3.5">
-          <span className="text-base font-bold text-white/70">12</span>
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
-            <User className="h-4 w-4 text-white" />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-white">Tu ({user?.name ?? "Usuario"})</p>
-            <p className="text-[10px] uppercase text-white/70">SUBIO 3 PUESTOS ESTA SEMANA</p>
-          </div>
-          <div className="text-right">
-            <p className="text-base font-bold text-white">18.4 kg</p>
-            <p className="text-[9px] uppercase text-white/70">CARBONO AHORRADO</p>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
-      <RankingBottomNav />
+      <BottomNav />
     </div>
   )
 }
