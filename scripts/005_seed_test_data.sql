@@ -1,109 +1,125 @@
 -- =============================================
--- SCRIPT DE DATOS DE PRUEBA
--- Ejecutar DESPUES de los scripts 001-004
+-- SCRIPT 005 - SOLO ACTIVIDADES DE PRUEBA
+-- NO modifica usuarios existentes
+-- Usa alimentos y transportes válidos de carbon-data.ts
 -- =============================================
 
--- Primero, crear los usuarios de prueba en auth.users
--- NOTA: Esto debe hacerse manualmente desde Supabase Dashboard > Authentication
--- o los usuarios deben registrarse normalmente.
--- Este script asume que los usuarios ya existen.
-
--- Insertar perfiles de prueba (si no existen)
--- Los friend_codes se generan automaticamente por el trigger
-INSERT INTO profiles (id, name, email, friend_code, created_at)
-VALUES 
-  ('11111111-1111-1111-1111-111111111111', 'Carlos García', 'ejemplo1@gmail.com', 'CARL1234', NOW() - INTERVAL '14 days'),
-  ('22222222-2222-2222-2222-222222222222', 'María López', 'ejemplo2@gmail.com', 'MARI5678', NOW() - INTERVAL '14 days'),
-  ('33333333-3333-3333-3333-333333333333', 'Juan Rodríguez', 'ejemplo3@gmail.com', 'JUAN9ABC', NOW() - INTERVAL '14 days')
-ON CONFLICT (id) DO UPDATE SET
-  name = EXCLUDED.name,
-  friend_code = EXCLUDED.friend_code;
-
--- Hacer que los 3 usuarios sean amigos entre sí
-INSERT INTO friendships (user_id, friend_id, status, created_at)
-VALUES
-  -- Carlos y María son amigos
-  ('11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'accepted', NOW() - INTERVAL '10 days'),
-  ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'accepted', NOW() - INTERVAL '10 days'),
-  -- Carlos y Juan son amigos
-  ('11111111-1111-1111-1111-111111111111', '33333333-3333-3333-3333-333333333333', 'accepted', NOW() - INTERVAL '8 days'),
-  ('33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', 'accepted', NOW() - INTERVAL '8 days'),
-  -- María y Juan son amigos
-  ('22222222-2222-2222-2222-222222222222', '33333333-3333-3333-3333-333333333333', 'accepted', NOW() - INTERVAL '5 days'),
-  ('33333333-3333-3333-3333-333333333333', '22222222-2222-2222-2222-222222222222', 'accepted', NOW() - INTERVAL '5 days')
-ON CONFLICT DO NOTHING;
-
 -- =============================================
--- ACTIVIDADES DE LA SEMANA PASADA
+-- ACTIVIDADES SEMANA PASADA (hace 7-13 días)
 -- =============================================
 
--- Carlos García - Semana pasada (emisiones moderadas)
-INSERT INTO activities (user_id, name, category, emissions, created_at) VALUES
-('11111111-1111-1111-1111-111111111111', 'Hamburguesa con papas', 'food', 3.2, NOW() - INTERVAL '10 days'),
-('11111111-1111-1111-1111-111111111111', 'Viaje en auto al trabajo', 'transport', 2.5, NOW() - INTERVAL '10 days'),
-('11111111-1111-1111-1111-111111111111', 'Pollo asado', 'food', 1.8, NOW() - INTERVAL '9 days'),
-('11111111-1111-1111-1111-111111111111', 'Viaje en bus', 'transport', 0.3, NOW() - INTERVAL '9 days'),
-('11111111-1111-1111-1111-111111111111', 'Pizza familiar', 'food', 2.1, NOW() - INTERVAL '8 days'),
-('11111111-1111-1111-1111-111111111111', 'Uber al centro', 'transport', 1.8, NOW() - INTERVAL '8 days');
+-- Usuario 1 (b1b0e13d-f711-4fea-b22d-96a582c8ddea) - Semana pasada
+INSERT INTO activities (user_id, type, name, emissions, details, created_at) VALUES
+-- Alimentos
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'food', 'carne', 5.40, '200g de carne de res', NOW() - INTERVAL '10 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'food', 'arroz', 0.80, '200g de arroz', NOW() - INTERVAL '10 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'food', 'pollo', 1.38, '200g de pollo', NOW() - INTERVAL '9 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'food', 'ensalada', 0.14, '200g de ensalada', NOW() - INTERVAL '9 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'food', 'hamburguesa', 4.20, '300g hamburguesa', NOW() - INTERVAL '8 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'food', 'cafe', 0.80, '100g de cafe', NOW() - INTERVAL '8 days'),
+-- Transporte
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'transport', 'car', 3.84, '20km en auto', NOW() - INTERVAL '10 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'transport', 'bus', 0.89, '10km en bus', NOW() - INTERVAL '9 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'transport', 'taxi', 2.10, '10km en taxi', NOW() - INTERVAL '8 days');
 
--- María López - Semana pasada (bajas emisiones - muy ecológica)
-INSERT INTO activities (user_id, name, category, emissions, created_at) VALUES
-('22222222-2222-2222-2222-222222222222', 'Ensalada vegana', 'food', 0.4, NOW() - INTERVAL '10 days'),
-('22222222-2222-2222-2222-222222222222', 'Bicicleta al trabajo', 'transport', 0.0, NOW() - INTERVAL '10 days'),
-('22222222-2222-2222-2222-222222222222', 'Pasta con verduras', 'food', 0.6, NOW() - INTERVAL '9 days'),
-('22222222-2222-2222-2222-222222222222', 'Caminata', 'transport', 0.0, NOW() - INTERVAL '9 days'),
-('22222222-2222-2222-2222-222222222222', 'Sopa de lentejas', 'food', 0.3, NOW() - INTERVAL '8 days'),
-('22222222-2222-2222-2222-222222222222', 'Metro', 'transport', 0.1, NOW() - INTERVAL '8 days');
+-- Usuario 2 (7e891503-4cb4-4bef-af8d-cc8fd2548c51) - Semana pasada (eco-friendly)
+INSERT INTO activities (user_id, type, name, emissions, details, created_at) VALUES
+-- Alimentos
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'food', 'lentejas', 0.18, '200g de lentejas', NOW() - INTERVAL '10 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'food', 'tofu', 0.60, '200g de tofu', NOW() - INTERVAL '10 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'food', 'pasta', 0.30, '200g de pasta', NOW() - INTERVAL '9 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'food', 'brocoli', 0.10, '200g de brocoli', NOW() - INTERVAL '9 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'food', 'frijoles', 0.16, '200g de frijoles', NOW() - INTERVAL '8 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'food', 'te', 0.12, '100g de te', NOW() - INTERVAL '8 days'),
+-- Transporte
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'transport', 'cycle', 0.00, '15km en bicicleta', NOW() - INTERVAL '10 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'transport', 'walk', 0.00, '3km caminando', NOW() - INTERVAL '9 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'transport', 'bus', 0.45, '5km en bus', NOW() - INTERVAL '8 days');
 
--- Juan Rodríguez - Semana pasada (altas emisiones)
-INSERT INTO activities (user_id, name, category, emissions, created_at) VALUES
-('33333333-3333-3333-3333-333333333333', 'Carne asada BBQ', 'food', 5.2, NOW() - INTERVAL '10 days'),
-('33333333-3333-3333-3333-333333333333', 'Viaje en avión corto', 'transport', 15.0, NOW() - INTERVAL '10 days'),
-('33333333-3333-3333-3333-333333333333', 'Costillas de cerdo', 'food', 3.8, NOW() - INTERVAL '9 days'),
-('33333333-3333-3333-3333-333333333333', 'Taxi aeropuerto', 'transport', 4.2, NOW() - INTERVAL '9 days'),
-('33333333-3333-3333-3333-333333333333', 'Filete de res', 'food', 6.1, NOW() - INTERVAL '8 days'),
-('33333333-3333-3333-3333-333333333333', 'Auto particular', 'transport', 3.5, NOW() - INTERVAL '8 days');
+-- Usuario 3 (0da28ca6-9e9e-42a8-987c-9c2f1665a64a) - Semana pasada (alto consumo)
+INSERT INTO activities (user_id, type, name, emissions, details, created_at) VALUES
+-- Alimentos
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'food', 'carne', 8.10, '300g de carne de res', NOW() - INTERVAL '10 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'food', 'queso', 2.70, '200g de queso', NOW() - INTERVAL '10 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'food', 'cerdo', 3.63, '300g de cerdo', NOW() - INTERVAL '9 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'food', 'pizza', 2.25, '450g de pizza', NOW() - INTERVAL '9 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'food', 'hamburguesa', 5.60, '400g hamburguesa', NOW() - INTERVAL '8 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'food', 'leche', 0.96, '300ml de leche', NOW() - INTERVAL '8 days'),
+-- Transporte
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'transport', 'car', 5.76, '30km en auto', NOW() - INTERVAL '10 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'transport', 'car', 3.84, '20km en auto', NOW() - INTERVAL '9 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'transport', 'taxi', 4.20, '20km en taxi', NOW() - INTERVAL '8 days');
 
 -- =============================================
--- ACTIVIDADES DE ESTA SEMANA
+-- ACTIVIDADES ESTA SEMANA (últimos 6 días)
 -- =============================================
 
--- Carlos García - Esta semana (mejorando)
-INSERT INTO activities (user_id, name, category, emissions, created_at) VALUES
-('11111111-1111-1111-1111-111111111111', 'Tacos de pollo', 'food', 1.2, NOW() - INTERVAL '3 days'),
-('11111111-1111-1111-1111-111111111111', 'Metro al trabajo', 'transport', 0.2, NOW() - INTERVAL '3 days'),
-('11111111-1111-1111-1111-111111111111', 'Sandwich de atún', 'food', 0.8, NOW() - INTERVAL '2 days'),
-('11111111-1111-1111-1111-111111111111', 'Bicicleta', 'transport', 0.0, NOW() - INTERVAL '2 days'),
-('11111111-1111-1111-1111-111111111111', 'Arroz con frijoles', 'food', 0.5, NOW() - INTERVAL '1 day'),
-('11111111-1111-1111-1111-111111111111', 'Caminar', 'transport', 0.0, NOW() - INTERVAL '1 day'),
-('11111111-1111-1111-1111-111111111111', 'Café con leche', 'food', 0.3, NOW()),
-('11111111-1111-1111-1111-111111111111', 'Bus eléctrico', 'transport', 0.1, NOW());
+-- Usuario 1 - Esta semana
+INSERT INTO activities (user_id, type, name, emissions, details, created_at) VALUES
+-- Alimentos
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'food', 'cerdo', 2.42, '200g de cerdo', NOW() - INTERVAL '5 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'food', 'queso', 1.35, '100g de queso', NOW() - INTERVAL '5 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'food', 'pizza', 1.50, '300g de pizza', NOW() - INTERVAL '4 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'food', 'leche', 0.64, '200ml de leche', NOW() - INTERVAL '4 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'food', 'salmon', 1.20, '200g de salmon', NOW() - INTERVAL '3 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'food', 'papa', 0.10, '200g de papa', NOW() - INTERVAL '3 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'food', 'huevos', 0.48, '100g de huevos', NOW() - INTERVAL '2 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'food', 'pan', 0.14, '100g de pan', NOW() - INTERVAL '2 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'food', 'aguacate', 0.26, '200g de aguacate', NOW() - INTERVAL '1 day'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'food', 'cafe', 0.80, '100g de cafe', NOW()),
+-- Transporte
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'transport', 'car', 2.88, '15km en auto', NOW() - INTERVAL '5 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'transport', 'motor', 1.13, '10km en moto', NOW() - INTERVAL '4 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'transport', 'bus', 1.78, '20km en bus', NOW() - INTERVAL '3 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'transport', 'taxi', 1.05, '5km en taxi', NOW() - INTERVAL '2 days'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'transport', 'walk', 0.00, '2km caminando', NOW() - INTERVAL '1 day'),
+('b1b0e13d-f711-4fea-b22d-96a582c8ddea', 'transport', 'car', 1.92, '10km en auto', NOW());
 
--- María López - Esta semana (sigue siendo ecológica)
-INSERT INTO activities (user_id, name, category, emissions, created_at) VALUES
-('22222222-2222-2222-2222-222222222222', 'Bowl de quinoa', 'food', 0.3, NOW() - INTERVAL '3 days'),
-('22222222-2222-2222-2222-222222222222', 'Scooter eléctrico', 'transport', 0.05, NOW() - INTERVAL '3 days'),
-('22222222-2222-2222-2222-222222222222', 'Wrap vegetariano', 'food', 0.4, NOW() - INTERVAL '2 days'),
-('22222222-2222-2222-2222-222222222222', 'Bicicleta', 'transport', 0.0, NOW() - INTERVAL '2 days'),
-('22222222-2222-2222-2222-222222222222', 'Smoothie de frutas', 'food', 0.2, NOW() - INTERVAL '1 day'),
-('22222222-2222-2222-2222-222222222222', 'Caminata', 'transport', 0.0, NOW() - INTERVAL '1 day'),
-('22222222-2222-2222-2222-222222222222', 'Avena con frutas', 'food', 0.15, NOW()),
-('22222222-2222-2222-2222-222222222222', 'Metro', 'transport', 0.1, NOW());
+-- Usuario 2 - Esta semana (sigue eco-friendly)
+INSERT INTO activities (user_id, type, name, emissions, details, created_at) VALUES
+-- Alimentos
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'food', 'avena', 0.16, '100g de avena', NOW() - INTERVAL '5 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'food', 'bananas', 0.14, '200g de bananas', NOW() - INTERVAL '5 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'food', 'garbanzos', 0.16, '200g de garbanzos', NOW() - INTERVAL '4 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'food', 'zanahorias', 0.08, '200g de zanahorias', NOW() - INTERVAL '4 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'food', 'pescado', 1.08, '200g de pescado', NOW() - INTERVAL '3 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'food', 'tomates', 0.28, '200g de tomates', NOW() - INTERVAL '3 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'food', 'yogurt', 0.22, '100g de yogurt', NOW() - INTERVAL '2 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'food', 'manzana', 0.08, '200g de manzana', NOW() - INTERVAL '2 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'food', 'naranjas', 0.10, '200g de naranjas', NOW() - INTERVAL '1 day'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'food', 'jugo-naranja', 0.22, '200ml de jugo', NOW()),
+-- Transporte
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'transport', 'cycle', 0.00, '20km en bicicleta', NOW() - INTERVAL '5 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'transport', 'walk', 0.00, '5km caminando', NOW() - INTERVAL '4 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'transport', 'bus', 0.89, '10km en bus', NOW() - INTERVAL '3 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'transport', 'cycle', 0.00, '12km en bicicleta', NOW() - INTERVAL '2 days'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'transport', 'walk', 0.00, '3km caminando', NOW() - INTERVAL '1 day'),
+('7e891503-4cb4-4bef-af8d-cc8fd2548c51', 'transport', 'bus', 0.45, '5km en bus', NOW());
 
--- Juan Rodríguez - Esta semana (intentando mejorar pero aún alto)
-INSERT INTO activities (user_id, name, category, emissions, created_at) VALUES
-('33333333-3333-3333-3333-333333333333', 'Pollo frito', 'food', 2.1, NOW() - INTERVAL '3 days'),
-('33333333-3333-3333-3333-333333333333', 'Auto al trabajo', 'transport', 2.8, NOW() - INTERVAL '3 days'),
-('33333333-3333-3333-3333-333333333333', 'Hamburguesa doble', 'food', 4.5, NOW() - INTERVAL '2 days'),
-('33333333-3333-3333-3333-333333333333', 'Uber', 'transport', 1.5, NOW() - INTERVAL '2 days'),
-('33333333-3333-3333-3333-333333333333', 'Sushi (con atún)', 'food', 1.8, NOW() - INTERVAL '1 day'),
-('33333333-3333-3333-3333-333333333333', 'Bus', 'transport', 0.3, NOW() - INTERVAL '1 day'),
-('33333333-3333-3333-3333-333333333333', 'Hot dog', 'food', 1.2, NOW()),
-('33333333-3333-3333-3333-333333333333', 'Taxi', 'transport', 1.9, NOW());
+-- Usuario 3 - Esta semana (sigue alto consumo)
+INSERT INTO activities (user_id, type, name, emissions, details, created_at) VALUES
+-- Alimentos
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'food', 'carne', 5.40, '200g de carne', NOW() - INTERVAL '5 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'food', 'hamburguesa', 4.20, '300g hamburguesa', NOW() - INTERVAL '5 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'food', 'pizza', 2.00, '400g de pizza', NOW() - INTERVAL '4 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'food', 'queso', 2.70, '200g de queso', NOW() - INTERVAL '4 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'food', 'cerdo', 2.42, '200g de cerdo', NOW() - INTERVAL '3 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'food', 'salmon', 1.80, '300g de salmon', NOW() - INTERVAL '3 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'food', 'pollo', 2.07, '300g de pollo', NOW() - INTERVAL '2 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'food', 'leche', 0.96, '300ml de leche', NOW() - INTERVAL '2 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'food', 'huevos', 0.96, '200g de huevos', NOW() - INTERVAL '1 day'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'food', 'cafe', 1.60, '200g de cafe', NOW()),
+-- Transporte
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'transport', 'car', 5.76, '30km en auto', NOW() - INTERVAL '5 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'transport', 'car', 3.84, '20km en auto', NOW() - INTERVAL '4 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'transport', 'taxi', 3.15, '15km en taxi', NOW() - INTERVAL '3 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'transport', 'motor', 2.26, '20km en moto', NOW() - INTERVAL '2 days'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'transport', 'car', 2.88, '15km en auto', NOW() - INTERVAL '1 day'),
+('0da28ca6-9e9e-42a8-987c-9c2f1665a64a', 'transport', 'taxi', 2.10, '10km en taxi', NOW());
 
 -- =============================================
 -- RESUMEN ESPERADO DEL RANKING SEMANAL:
--- 1. María López: ~1.2 kg CO2 (la más ecológica)
--- 2. Carlos García: ~3.1 kg CO2 (mejorando)
--- 3. Juan Rodríguez: ~16.1 kg CO2 (necesita mejorar)
+-- 1. Usuario 2: ~3.86 kg CO2 (el más ecológico)
+-- 2. Usuario 1: ~16.65 kg CO2 (moderado)
+-- 3. Usuario 3: ~45.10 kg CO2 (alto consumo)
 -- =============================================
